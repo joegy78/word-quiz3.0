@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语默写助手</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #e8f0fe, #f3e5f5);
+            min-height: 100vh;
+            user-select: none;
+        }
+        #coverPage {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; padding: 30px 20px; text-align: center;
+        }
+        #coverPage.hidden { display: none; }
+        .cover-icon { font-size: 64px; margin-bottom: 12px; }
+        .cover-title { font-size: 32px; font-weight: 800; color: #1a237e; margin-bottom: 6px; letter-spacing: 2px; }
+        .cover-subtitle { font-size: 14px; color: #888; margin-bottom: 28px; }
+        .category-cards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 420px; }
+        .category-card {
+            background: white; border-radius: 18px; padding: 22px 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06); cursor: pointer;
+            transition: all 0.3s ease; text-align: center; width: 130px;
+            border: none; font-family: inherit;
+        }
+        .category-card:active { transform: scale(0.95); }
+        .category-icon { font-size: 36px; margin-bottom: 8px; }
+        .category-name { font-size: 15px; font-weight: 700; color: #1a237e; }
+        .category-count { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+        #categoryPage { display: none; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+        #categoryPage.active { display: flex; }
+        .container { width: 100%; max-width: 420px; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .back-btn {
+            background: white; color: #5c6bc0; font-size: 15px; font-weight: 600;
+            padding: 10px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: none; cursor: pointer;
+        }
+        .admin-btn-top {
+            background: #5c6bc0; color: white; font-size: 14px; font-weight: 600;
+            padding: 10px 16px; border-radius: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: none; cursor: pointer; z-index: 99999; position: relative;
+        }
+        .admin-btn-top.active { background: #43a047; }
+
+        #adminModal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.6);
+            z-index: 99999; justify-content: center; align-items: center;
+        }
+        #adminModal.show { display: flex; }
+        .modal-box {
+            background: white; border-radius: 20px; padding: 28px 22px;
+            text-align: center; max-width: 320px; width: 90%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3); z-index: 100000;
+        }
+        .modal-box h3 { margin-bottom: 6px; color: #1a237e; }
+        .modal-box p { font-size: 13px; color: #999; margin-bottom: 14px; }
+        .modal-box input {
+            width: 100%; padding: 12px 14px; font-size: 16px;
+            border: 2px solid #ddd; border-radius: 30px;
+            text-align: center; outline: none; margin-bottom: 10px;
+        }
+        .modal-box input:focus { border-color: #5c6bc0; }
+        .modal-box .btn-submit {
+            background: #5c6bc0; color: white; border: none;
+            padding: 12px 28px; font-size: 16px; border-radius: 30px;
+            cursor: pointer; font-weight: 600; width: 100%;
+        }
+        .modal-box .btn-cancel {
+            background: #fff; color: #999; border: 1px solid #ddd;
+            padding: 10px 28px; font-size: 14px; border-radius: 30px;
+            cursor: pointer; margin-top: 6px; width: 100%;
+        }
+        #modalError { color: #e53935; font-size: 13px; margin-bottom: 6px; display: none; }
+
+        #adminPanel {
+            background: white; border-radius: 20px; padding: 18px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+            margin-bottom: 14px; display: none;
+        }
+        #adminPanel.visible { display: block; }
+        #adminPanel .section-title { font-weight: 700; color: #333; margin-bottom: 10px; font-size: 15px; }
+        .file-import-area {
+            border: 2px dashed #5c6bc0; border-radius: 14px;
+            padding: 16px 12px; text-align: center; background: #f8f9ff;
+            margin-bottom: 10px; cursor: pointer;
+        }
+        .file-import-area:hover { background: #eef0ff; }
+        .file-import-icon { font-size: 28px; margin-bottom: 4px; }
+        .file-import-text { font-size: 13px; color: #5c6bc0; font-weight: 600; }
+        .file-import-sub { font-size: 11px; color: #999; margin-top: 2px; }
+        .file-name-display { font-size: 12px; color: #2e7d32; margin-top: 4px; }
+        .btn-load {
+            background: #43a047; color: white; border: none;
+            padding: 10px 18px; font-size: 14px; border-radius: 30px;
+            cursor: pointer; margin-top: 8px; font-weight: 600; width: 100%;
+        }
+        .btn-logout {
+            background: #fff; color: #e53935; border: 1px solid #e53935;
+            padding: 8px 16px; font-size: 13px; border-radius: 20px;
+            cursor: pointer; margin-top: 6px; width: 100%;
+        }
+
+        #dictationCard {
+            background: white; border-radius: 24px; padding: 30px 22px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.08); text-align: center;
+        }
+        #dictationStatus { font-size: 13px; color: #aaa; margin-bottom: 8px; min-height: 18px; }
+        #dictationWord { font-size: 36px; font-weight: 700; color: #1a237e; min-height: 50px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; letter-spacing: 2px; }
+        #dictationPhonetic { font-size: 15px; color: #888; min-height: 22px; margin-bottom: 4px; }
+        #dictationMeaning { font-size: 18px; color: #333; min-height: 26px; margin-bottom: 16px; }
+        #dictationInput {
+            width: 100%; padding: 14px 16px; font-size: 20px;
+            border: 2px solid #ddd; border-radius: 14px;
+            text-align: center; outline: none; letter-spacing: 2px; margin-bottom: 12px;
+        }
+        #dictationInput:focus { border-color: #5c6bc0; }
+        #dictationTimer { font-size: 28px; font-weight: 700; color: #f57c00; min-height: 38px; margin-bottom: 6px; }
+        #dictationFeedback { font-size: 18px; font-weight: 600; min-height: 28px; margin-bottom: 8px; }
+        .correct { color: #2e7d32; }
+        .wrong { color: #c62828; }
+        .btn-start-dictation {
+            background: #5c6bc0; color: white; border: none;
+            padding: 16px 40px; font-size: 20px; border-radius: 50px;
+            cursor: pointer; font-weight: 700;
+            box-shadow: 0 8px 24px rgba(92,107,192,0.3); width: 100%;
+        }
+        .btn-stop-dictation {
+            background: #ef5350; color: white; border: none;
+            padding: 12px 30px; font-size: 16px; border-radius: 50px;
+            cursor: pointer; font-weight: 600; margin-top: 8px; width: 100%;
+        }
+        #dictationProgress { font-size: 13px; color: #aaa; margin-top: 8px; }
+        #fileInput { display: none; }
+
+        @media (max-width: 400px) {
+            .cover-title { font-size: 26px; }
+            .category-card { width: 110px; padding: 18px 12px; }
+            #dictationWord { font-size: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="coverPage">
+        <div class="cover-icon">📝</div>
+        <div class="cover-title">英语默写助手</div>
+        <div class="cover-subtitle">听发音 · 默写拼写 · 即时纠错</div>
+        <div class="category-cards">
+            <button class="category-card" id="btn-cet4">
+                <div class="category-icon">📘</div><div class="category-name">四级高频</div><div class="category-count" id="count-cet4">0 词</div>
+            </button>
+            <button class="category-card" id="btn-cet6">
+                <div class="category-icon">📙</div><div class="category-name">六级高频</div><div class="category-count" id="count-cet6">0 词</div>
+            </button>
+            <button class="category-card" id="btn-kaoyan">
+                <div class="category-icon">📕</div><div class="category-name">考研高频</div><div class="category-count" id="count-kaoyan">0 词</div>
+            </button>
+            <button class="category-card" id="btn-hotel">
+                <div class="category-icon">🏨</div><div class="category-name">酒店场景</div><div class="category-count" id="count-hotel">0 词</div>
+            </button>
+        </div>
+    </div>
+
+    <div id="adminModal">
+        <div class="modal-box">
+            <h3>🔐 管理员验证</h3><p>输入密码以管理词库</p>
+            <div id="modalError">密码错误</div>
+            <input type="password" id="adminPasswordInput" placeholder="请输入管理密码" autocomplete="off">
+            <button class="btn-submit" id="btnVerify">确认</button>
+            <button class="btn-cancel" id="btnCancel">取消</button>
+        </div>
+    </div>
+
+    <div id="categoryPage">
+        <div class="container">
+            <div class="top-bar">
+                <button class="back-btn" id="btnBack">← 返回首页</button>
+                <button class="admin-btn-top" id="btnAdminTop">🔑 管理员</button>
+            </div>
+            <div id="adminPanel">
+                <div class="section-title">📂 词库管理 - <span id="adminCategoryName"></span></div>
+                <div class="file-import-area" id="fileDropZone">
+                    <div class="file-import-icon">📂</div>
+                    <div class="file-import-text">点击此处上传词库文件</div>
+                    <div class="file-import-sub">支持任意分隔符：逗号、空格、Tab等</div>
+                    <div class="file-name-display" id="fileNameDisplay"></div>
+                </div>
+                <input type="file" id="fileInput" accept=".txt,.csv">
+                <div class="file-name-display" id="fileCountDisplay"></div>
+                <button class="btn-load" id="btnClearBank">🗑️ 清空当前词库</button>
+                <button class="btn-logout" id="btnLogout">🚪 退出管理模式</button>
+            </div>
+            <div id="dictationCard">
+                <div id="dictationStatus">准备开始</div>
+                <div id="dictationWord"></div>
+                <div id="dictationPhonetic"></div>
+                <div id="dictationMeaning"></div>
+                <input type="text" id="dictationInput" placeholder="在此输入拼写..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                <div id="dictationTimer"></div>
+                <div id="dictationFeedback"></div>
+                <button class="btn-start-dictation" id="btnStartDictation">🎧 开始默写</button>
+                <button class="btn-stop-dictation" id="btnStopDictation" style="display:none;">⏹️ 停止默写</button>
+                <div id="dictationProgress"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_PASSWORD = "wodimima2024";
+        const categoryNames = { cet4:"四级高频", cet6:"六级高频", kaoyan:"考研高频", hotel:"酒店场景" };
+        let currentCategory = null;
+        let wordBank = { cet4:[], cet6:[], kaoyan:[], hotel:[] };
+        let isAdmin = false;
+        let isDictating = false;
+        let dictationTimer = null;
+        let currentWordIndex = null;
+        let usedIndices = [];
+        let isWaitingForAnswer = false; // 是否在等待用户输入
+        let autoSubmitTimer = null; // 自动提交计时器
+
+        function init() {
+            const saved = localStorage.getItem("wordBank_v7");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    for (const cat of ['cet4','cet6','kaoyan','hotel']) {
+                        if (parsed[cat] && Array.isArray(parsed[cat])) wordBank[cat] = parsed[cat];
+                    }
+                } catch(e) {}
+            }
+            updateAllCounts();
+            bindEvents();
+        }
+
+        function saveWordBank() {
+            localStorage.setItem("wordBank_v7", JSON.stringify(wordBank));
+            updateAllCounts();
+        }
+
+        function updateAllCounts() {
+            for (const cat of ['cet4','cet6','kaoyan','hotel']) {
+                const el = document.getElementById("count-"+cat);
+                if (el) el.textContent = (wordBank[cat]||[]).length + " 词";
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById("btn-cet4").addEventListener("click", ()=>enterCategory('cet4'));
+            document.getElementById("btn-cet6").addEventListener("click", ()=>enterCategory('cet6'));
+            document.getElementById("btn-kaoyan").addEventListener("click", ()=>enterCategory('kaoyan'));
+            document.getElementById("btn-hotel").addEventListener("click", ()=>enterCategory('hotel'));
+            document.getElementById("btnVerify").addEventListener("click", verifyAdmin);
+            document.getElementById("btnCancel").addEventListener("click", closeAdminModal);
+            document.getElementById("adminModal").addEventListener("click", function(e){ if(e.target===this) closeAdminModal(); });
+            document.getElementById("adminPasswordInput").addEventListener("keydown", function(e){ if(e.key==="Enter") verifyAdmin(); });
+            document.getElementById("btnAdminTop").addEventListener("click", function(){ isAdmin ? logoutAdmin() : showAdminLogin(); });
+            document.getElementById("btnBack").addEventListener("click", goBack);
+            document.getElementById("fileDropZone").addEventListener("click", ()=>document.getElementById("fileInput").click());
+            document.getElementById("fileInput").addEventListener("change", handleFileSelect);
+            document.getElementById("btnClearBank").addEventListener("click", clearCurrentBank);
+            document.getElementById("btnLogout").addEventListener("click", logoutAdmin);
+            document.getElementById("btnStartDictation").addEventListener("click", startDictation);
+            document.getElementById("btnStopDictation").addEventListener("click", stopDictation);
+            
+            // 回车提交
+            document.getElementById("dictationInput").addEventListener("keydown", function(e){
+                if (e.key === "Enter" && isWaitingForAnswer) {
+                    submitAnswer();
+                }
+            });
+
+            // 拖拽上传
+            const dz = document.getElementById("fileDropZone");
+            dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.style.borderColor='#3949ab'; });
+            dz.addEventListener('dragleave', e=>{ e.preventDefault(); dz.style.borderColor='#5c6bc0'; });
+            dz.addEventListener('drop', e=>{
+                e.preventDefault(); dz.style.borderColor='#5c6bc0';
+                if(e.dataTransfer.files[0]){
+                    const f=e.dataTransfer.files[0];
+                    document.getElementById("fileNameDisplay").textContent="📄 "+f.name;
+                    const r=new FileReader();
+                    r.onload=function(ev){ parseFile(ev.target.result); };
+                    r.readAsText(f,'UTF-8');
+                }
+            });
+        }
+
+        function showAdminLogin() {
+            document.getElementById("adminModal").classList.add("show");
+            document.getElementById("adminPasswordInput").value="";
+            document.getElementById("modalError").style.display="none";
+            setTimeout(()=>document.getElementById("adminPasswordInput").focus(),200);
+        }
+        function closeAdminModal() { document.getElementById("adminModal").classList.remove("show"); }
+        function verifyAdmin() {
+            if(document.getElementById("adminPasswordInput").value.trim()===ADMIN_PASSWORD){
+                isAdmin=true; closeAdminModal();
+                document.getElementById("btnAdminTop").textContent="🔓 管理";
+                document.getElementById("btnAdminTop").classList.add("active");
+                if(currentCategory){
+                    document.getElementById("adminPanel").classList.add("visible");
+                    document.getElementById("adminCategoryName").textContent=categoryNames[currentCategory];
+                }
+            } else {
+                document.getElementById("modalError").style.display="block";
+                document.getElementById("adminPasswordInput").value="";
+                document.getElementById("adminPasswordInput").focus();
+            }
+        }
+        function logoutAdmin() {
+            isAdmin=false;
+            document.getElementById("adminPanel").classList.remove("visible");
+            document.getElementById("btnAdminTop").textContent="🔑 管理员";
+            document.getElementById("btnAdminTop").classList.remove("active");
+        }
+
+        function enterCategory(cat) {
+            currentCategory=cat;
+            document.getElementById("coverPage").classList.add("hidden");
+            document.getElementById("categoryPage").classList.add("active");
+            if(isAdmin){
+                document.getElementById("adminPanel").classList.add("visible");
+                document.getElementById("adminCategoryName").textContent=categoryNames[cat];
+            } else {
+                document.getElementById("adminPanel").classList.remove("visible");
+            }
+            updateDictationUI();
+            updateWordCountDisplay();
+        }
+        function goBack() { stopDictation(); currentCategory=null; document.getElementById("categoryPage").classList.remove("active"); document.getElementById("coverPage").classList.remove("hidden"); updateAllCounts(); }
+        function updateWordCountDisplay() {
+            if(currentCategory && wordBank[currentCategory]) {
+                document.getElementById("fileCountDisplay").textContent="当前词库："+wordBank[currentCategory].length+" 个单词";
+            }
+        }
+        function updateDictationUI() {
+            document.getElementById("dictationWord").textContent="";
+            document.getElementById("dictationPhonetic").textContent="";
+            document.getElementById("dictationMeaning").textContent="";
+            document.getElementById("dictationInput").value="";
+            document.getElementById("dictationInput").disabled=true;
+            document.getElementById("dictationTimer").textContent="";
+            document.getElementById("dictationFeedback").textContent="";
+            document.getElementById("dictationFeedback").className="";
+            document.getElementById("dictationStatus").textContent="准备开始";
+            document.getElementById("dictationProgress").textContent="";
+            document.getElementById("btnStartDictation").style.display="inline-block";
+            document.getElementById("btnStopDictation").style.display="none";
+            isWaitingForAnswer = false;
+            updateWordCountDisplay();
+        }
+
+        function handleFileSelect(event) {
+            const file=event.target.files[0];
+            if(!file) return;
+            document.getElementById("fileNameDisplay").textContent="📄 "+file.name;
+            const reader=new FileReader();
+            reader.onload=function(e){ parseFile(e.target.result); };
+            reader.readAsText(file,'UTF-8');
+        }
+
+        // ==================== 智能解析（支持任意格式） ====================
+        function parseFile(text) {
+            if(!currentCategory) return;
+            const allLines = text.split(/[\r\n]+/);
+            const newList = [];
+            let skipped = 0;
+            let emptySkipped = 0;
+            
+            for (let i = 0; i < allLines.length; i++) {
+                let line = allLines[i];
+                
+                if (line.trim() === '') {
+                    emptySkipped++;
+                    continue;
+                }
+                
+                const parsed = smartParseLine(line.trim());
+                if (parsed) {
+                    newList.push(parsed);
+                } else {
+                    skipped++;
+                }
+            }
+            
+            if (newList.length === 0) {
+                alert('❌ 没有解析到有效单词！\n请确保每行至少包含英文和中文');
+                return;
+            }
+            
+            wordBank[currentCategory] = newList;
+            saveWordBank();
+            updateWordCountDisplay();
+            updateAllCounts();
+            updateDictationUI();
+            
+            let msg = '✅ 成功加载 ' + newList.length + ' 个单词！';
+            if (skipped > 0 || emptySkipped > 0) {
+                msg += '\n\n📊 统计：';
+                msg += '\n总行数：' + allLines.length;
+                msg += '\n空行跳过：' + emptySkipped;
+                msg += '\n无法识别：' + skipped;
+                msg += '\n有效加载：' + newList.length;
+            }
+            alert(msg);
+            document.getElementById("fileNameDisplay").textContent="";
+            document.getElementById("fileInput").value="";
+        }
+
+        function smartParseLine(line) {
+            // 检测是否包含中文字符
+            const hasChinese = /[\u4e00-\u9fa5]/.test(line);
+            if (!hasChinese) {
+                // 没有中文，无法确定释义，尝试用最后一段当释义
+                // 但至少要有英文
+                const englishMatch = line.match(/^[a-zA-Z\s\-']+/);
+                if (!englishMatch) return null;
+                const en = englishMatch[0].trim();
+                if (!en || en.length < 2) return null;
+                // 剩余部分
+                const rest = line.substring(englishMatch[0].length).trim();
+                // 尝试找音标 /.../
+                const phoneticMatch = rest.match(/\/[^\/]*\//);
+                const phonetic = phoneticMatch ? phoneticMatch[0] : '';
+                const restWithoutPhonetic = phoneticMatch ? rest.replace(phoneticMatch[0], '').trim() : rest;
+                return {
+                    en: en,
+                    phonetic: phonetic,
+                    pos: restWithoutPhonetic || '',
+                    ch: restWithoutPhonetic || ''
+                };
+            }
+            
+            // 有中文的情况：智能分割
+            // 策略：找到英文部分（开头连续字母/短横线）、音标（/.../）、中文部分
+            
+            let en = '';
+            let phonetic = '';
+            let pos = '';
+            let ch = '';
+            
+            // 1. 提取音标
+            const phoneticMatch = line.match(/\/[^\/]*\//);
+            if (phoneticMatch) {
+                phonetic = phoneticMatch[0];
+                line = line.replace(phoneticMatch[0], '___PHONETIC___');
+            }
+            
+            // 2. 找到中文开始的位置
+            const chineseStart = line.search(/[\u4e00-\u9fa5]/);
+            
+            if (chineseStart === -1) {
+                // 没有中文，但有音标
+                const parts = line.replace('___PHONETIC___', '').split(/[,\s\t;；]+/).filter(p => p);
+                if (parts.length >= 1) {
+                    en = parts[0];
+                    pos = parts.length >= 2 ? parts[1] : '';
+                }
+                ch = '';
+            } else if (chineseStart === 0) {
+                // 中文在最前面，不太可能
+                return null;
+            } else {
+                // 正常情况：英文在前，中文在后
+                const beforeChinese = line.substring(0, chineseStart).replace('___PHONETIC___', '').trim();
+                ch = line.substring(chineseStart).trim();
+                
+                // 从英文部分提取英文和词性
+                const enParts = beforeChinese.split(/[,\s\t;；]+/).filter(p => p);
+                if (enParts.length >= 1) {
+                    en = enParts[0];
+                    pos = enParts.length >= 2 ? enParts.slice(1).join(' ') : '';
+                }
+            }
+            
+            // 恢复音标
+            if (phoneticMatch) {
+                line = line.replace('___PHONETIC___', phonetic);
+            }
+            
+            // 清理英文
+            en = en.replace(/[^a-zA-Z\-'\s]/g, '').trim();
+            
+            if (!en || en.length < 1) return null;
+            
+            return {
+                en: en,
+                phonetic: phonetic,
+                pos: pos,
+                ch: ch || pos || en
+            };
+        }
+
+        function clearCurrentBank() {
+            if(!currentCategory) return;
+            if(confirm('确定清空「'+categoryNames[currentCategory]+'」的全部单词？')){
+                wordBank[currentCategory]=[];
+                saveWordBank();
+                updateWordCountDisplay();
+                updateAllCounts();
+                updateDictationUI();
+            }
+        }
+
+        // ==================== 语音（只读英文单词，不读词性） ====================
+        function speakWord(word) {
+            return new Promise(r => {
+                if (!('speechSynthesis' in window)) { r(); return; }
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(word);
+                u.lang = 'en-US';
+                u.rate = 0.85;
+                u.onend = () => r();
+                u.onerror = () => r();
+                window.speechSynthesis.speak(u);
+            });
+        }
+
+        // ==================== 默写模式 ====================
+        async function startDictation() {
+            if(!currentCategory || !wordBank[currentCategory] || wordBank[currentCategory].length===0){
+                alert('词库为空，请先上传词库！'); return;
+            }
+            isDictating = true;
+            usedIndices = [];
+            document.getElementById("btnStartDictation").style.display = "none";
+            document.getElementById("btnStopDictation").style.display = "inline-block";
+            document.getElementById("dictationProgress").textContent = "共 " + wordBank[currentCategory].length + " 词";
+            runDictationRound();
+        }
+
+        function stopDictation() {
+            isDictating = false;
+            isWaitingForAnswer = false;
+            if (dictationTimer) clearInterval(dictationTimer);
+            if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+            dictationTimer = null;
+            autoSubmitTimer = null;
+            window.speechSynthesis.cancel();
+            updateDictationUI();
+        }
+
+        async function runDictationRound() {
+            if (!isDictating) return;
+            const bank = wordBank[currentCategory];
+            if (!bank || bank.length === 0) { stopDictation(); return; }
+
+            if (usedIndices.length >= bank.length) usedIndices = [];
+            let idx;
+            do { idx = Math.floor(Math.random() * bank.length); } while (usedIndices.includes(idx));
+            usedIndices.push(idx);
+            currentWordIndex = idx;
+            const word = bank[idx];
+
+            const dw = document.getElementById("dictationWord");
+            const dp = document.getElementById("dictationPhonetic");
+            const dm = document.getElementById("dictationMeaning");
+            const di = document.getElementById("dictationInput");
+            const dt = document.getElementById("dictationTimer");
+            const df = document.getElementById("dictationFeedback");
+            const ds = document.getElementById("dictationStatus");
+            const dpro = document.getElementById("dictationProgress");
+
+            // 清空显示
+            dw.textContent = "🔊 听发音...";
+            dp.textContent = "";
+            dm.textContent = "";
+            di.value = "";
+            di.disabled = true;
+            dt.textContent = "";
+            df.textContent = "";
+            df.className = "";
+            ds.textContent = "";
+            dpro.textContent = "已默 " + usedIndices.length + " / " + bank.length;
+
+            // 读第一遍（只读英文单词）
+            ds.textContent = "正在朗读 第1遍...";
+            await speakWord(word.en);
+            await new Promise(r => setTimeout(r, 500));
+
+            // 读第二遍（只读英文单词）
+            ds.textContent = "正在朗读 第2遍...";
+            await speakWord(word.en);
+            await new Promise(r => setTimeout(r, 300));
+
+            // 开始7秒默写
+            dw.textContent = "✍️ 请默写";
+            ds.textContent = "请输入英文拼写（按回车提交）";
+            di.disabled = false;
+            di.value = "";
+            di.focus();
+            isWaitingForAnswer = true;
+
+            let timeLeft = 7;
+            dt.textContent = "⏳ " + timeLeft + " 秒";
+            dt.style.color = "#f57c00";
+            
+            if (dictationTimer) clearInterval(dictationTimer);
+            dictationTimer = setInterval(() => {
+                timeLeft--;
+                dt.textContent = "⏳ " + timeLeft + " 秒";
+                if (timeLeft <= 3) dt.style.color = "#c62828";
+                if (timeLeft <= 0) {
+                    clearInterval(dictationTimer);
+                    dictationTimer = null;
+                    submitAnswer();
+                }
+            }, 1000);
+        }
+
+        function submitAnswer() {
+            if (!isWaitingForAnswer) return;
+            isWaitingForAnswer = false;
+            
+            if (dictationTimer) clearInterval(dictationTimer);
+            dictationTimer = null;
+            
+            checkAnswer();
+        }
+
+        async function checkAnswer() {
+            if (!isDictating) return;
+            
+            const dw = document.getElementById("dictationWord");
+            const dp = document.getElementById("dictationPhonetic");
+            const dm = document.getElementById("dictationMeaning");
+            const di = document.getElementById("dictationInput");
+            const dt = document.getElementById("dictationTimer");
+            const df = document.getElementById("dictationFeedback");
+            const ds = document.getElementById("dictationStatus");
+
+            di.disabled = true;
+            
+            const word = wordBank[currentCategory][currentWordIndex];
+            const userAnswer = di.value.trim();
+            const isCorrect = userAnswer.toLowerCase() === word.en.toLowerCase();
+
+            // 显示对错
+            df.textContent = isCorrect ? "✅ 正确！" : "❌ 错误";
+            df.className = isCorrect ? "correct" : "wrong";
+
+            // 显示完整词汇信息
+            dw.textContent = word.en;
+            dp.textContent = (word.phonetic || "") + (word.pos ? "  " + word.pos : "");
+            dm.textContent = word.ch;
+            dt.textContent = "";
+            ds.textContent = isCorrect ? "👍 很好！" : "👀 请记住正确答案";
+
+            // 等待5秒后自动下一个
+            await new Promise(r => {
+                autoSubmitTimer = setTimeout(r, 5000);
+            });
+            autoSubmitTimer = null;
+
+            if (isDictating) {
+                dw.textContent = "";
+                dp.textContent = "";
+                dm.textContent = "";
+                df.textContent = "";
+                df.className = "";
+                dt.textContent = "";
+                dt.style.color = "#f57c00";
+                runDictationRound();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
